@@ -7,6 +7,8 @@ from pyroute2.netlink.rtnl.tcmsg import (
     act_police,
     act_skbedit,
     act_vlan,
+    act_pedit,
+    act_tunnel_key
 )
 from pyroute2.netlink.rtnl.tcmsg.common import TCA_ACT_MAX_PRIO, stats2
 
@@ -15,9 +17,11 @@ plugins = {
     'bpf': act_bpf,
     'police': act_police,
     'mirred': act_mirred,
+    'pedit': act_pedit,
     'connmark': act_connmark,
     'vlan': act_vlan,
     'skbedit': act_skbedit,
+    'tunnel_key': act_tunnel_key,
 }
 
 
