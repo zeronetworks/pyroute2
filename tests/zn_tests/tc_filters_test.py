@@ -332,3 +332,24 @@ def test_chain(ipr, ifindex, priority):
         chain=10,
         action=[{"kind": "gact", "action": "drop"}],
     )
+
+
+def test_goto_chain(ipr, ifindex, priority):
+    ipr.tc(
+        "add-filter",
+        "matchall",
+        ifindex,
+        parent=CLSACT_INGRESS,
+        prio=priority,
+        action=[{"kind": "gact", "action": "goto", "chain": 20}],
+    )
+
+    ipr.tc(
+        "add-filter",
+        "matchall",
+        ifindex,
+        parent=CLSACT_INGRESS,
+        prio=priority,
+        chain=20,
+        action=[{"kind": "gact", "action": "drop"}],
+    )
