@@ -26,6 +26,11 @@ ATM_CELL_PAYLOAD = 48
 TCA_ACT_MAX_PRIO = 32
 TIME_UNITS_PER_SEC = 1000000
 
+# TC_ACT extended action constants (from pkt_cls.h)
+TC_ACT_EXT_SHIFT = 28
+TC_ACT_EXT_VAL_MASK = (1 << TC_ACT_EXT_SHIFT) - 1
+TC_ACT_GOTO_CHAIN = 2 << TC_ACT_EXT_SHIFT
+
 try:
     with open('/proc/net/psched', 'r') as psched:
         [t2us, us2t, clock_res, wee] = [
@@ -293,6 +298,7 @@ tc_actions = {
     'queued': 5,  # TC_ACT_QUEUED
     'repeat': 6,  # TC_ACT_REPEAT
     'redirect': 7,  # TC_ACT_REDIRECT
+    'goto': TC_ACT_GOTO_CHAIN,  # TC_ACT_GOTO_CHAIN
 }
 
 
