@@ -320,3 +320,15 @@ def test_tunnel_key(ipr, ifindex, priority):
             }
         ],
     )
+
+
+def test_chain(ipr, ifindex, priority):
+    ipr.tc(
+        "add-filter",
+        "matchall",
+        ifindex,
+        parent=CLSACT_INGRESS,
+        prio=priority,
+        chain=10,
+        action=[{"kind": "gact", "action": "drop"}],
+    )
