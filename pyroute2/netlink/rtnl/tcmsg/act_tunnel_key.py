@@ -1,7 +1,7 @@
 import struct
 
 from pyroute2.netlink import NLA_F_NESTED, nla
-from pyroute2.netlink.rtnl.tcmsg.common import tc_actions
+from pyroute2.netlink.rtnl.tcmsg.common import CommonTcArgs, tc_actions
 from pyroute2.netlink.rtnl.tcmsg.utils import is_ipv6_addr, parse_geneve_opt
 
 # Tunnel key NLA attributes
@@ -33,14 +33,9 @@ ACTION_ARG_TO_CONST = {
 }
 
 
-class TunnelKeyArgs:
-    TC_ACTION = 'tc_action'
+class TunnelKeyArgs(CommonTcArgs):
     ACTION = 'action'
-    SRC_IP = 'src_ip'
-    DST_IP = 'dst_ip'
     KEY_ID = 'key_id'
-    DST_PORT = 'dst_port'
-    GENEVE_OPTS = 'geneve_opts'
 
 
 def get_parameters(kwarg):
