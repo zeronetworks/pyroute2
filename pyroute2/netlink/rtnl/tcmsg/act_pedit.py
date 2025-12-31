@@ -9,6 +9,13 @@ PEDIT_MASK_WRITE_ALL = 0x00000000      # Write all 4 bytes
 PEDIT_MASK_WRITE_U16_LOW = 0xFFFF0000  # Write lower 2 bytes only
 PEDIT_MASK_WRITE_U16_HIGH = 0x0000FFFF # Write upper 2 bytes only
 
+# Pedit NLA attributes
+TCA_PEDIT_PARMS_EX = 'TCA_PEDIT_PARMS_EX'
+TCA_PEDIT_KEYS_EX = 'TCA_PEDIT_KEYS_EX'
+TCA_PEDIT_KEY_EX = 'TCA_PEDIT_KEY_EX'
+TCA_PEDIT_KEY_EX_HTYPE = 'TCA_PEDIT_KEY_EX_HTYPE'
+TCA_PEDIT_KEY_EX_CMD = 'TCA_PEDIT_KEY_EX_CMD'
+
 ETH_FIELD_OFFSETS = {
     'dst': 0,
     'src': 6,
@@ -43,9 +50,9 @@ def get_parameters(kwarg):
     sel = TcPeditSelector(action=action_code, nkeys=len(keys))
     payload = sel.pack() + b''.join(keys)
 
-    attrs = [['TCA_PEDIT_PARMS_EX', payload]]
+    attrs = [[TCA_PEDIT_PARMS_EX, payload]]
     if keys_ex:
-        attrs.append(['TCA_PEDIT_KEYS_EX', {'attrs': _build_keys_ex_attrs(keys_ex)}])
+        attrs.append([TCA_PEDIT_KEYS_EX, {'attrs': _build_keys_ex_attrs(keys_ex)}])
 
     return {'attrs': attrs}
 
@@ -139,11 +146,11 @@ def _build_keys_ex_attrs(keys_ex):
     """Build TCA_PEDIT_KEYS_EX nested attribute list."""
     return [
         [
-            'TCA_PEDIT_KEY_EX',
+            TCA_PEDIT_KEY_EX,
             {
                 'attrs': [
-                    ['TCA_PEDIT_KEY_EX_HTYPE', ex[PeditArgs.HTYPE]],
-                    ['TCA_PEDIT_KEY_EX_CMD', ex[PeditArgs.CMD]],
+                    [TCA_PEDIT_KEY_EX_HTYPE, ex[PeditArgs.HTYPE]],
+                    [TCA_PEDIT_KEY_EX_CMD, ex[PeditArgs.CMD]],
                 ]
             },
         ]
