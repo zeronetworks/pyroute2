@@ -259,6 +259,23 @@ def test_flower_ip_range(ipr, ifindex, priority):
         actions=[{"kind": "gact", "action": "drop"}],
     )
 
+def test_flower_ip_frags(ipr, ifindex, priority):
+    ipr.tc(
+        "add-filter", "flower", ifindex,
+        parent=CLSACT_INGRESS,
+        prio=priority,
+        ip_flags="frag",
+        actions=[{"kind": "gact", "action": "drop"}],
+    )
+
+    ipr.tc(
+        "add-filter", "flower", ifindex,
+        parent=CLSACT_INGRESS,
+        prio=priority + 1,
+        ip_flags="nofrag",
+        actions=[{"kind": "gact", "action": "drop"}],
+    )
+
 
 def test_pedit_munge_set_src(ipr, ifindex, priority):
     ipr.tc(
