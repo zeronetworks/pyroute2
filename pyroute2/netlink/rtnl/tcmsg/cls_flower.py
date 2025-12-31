@@ -22,6 +22,13 @@ GENEVE_DATA_BYTE_MASK = 0xFF
 IP_VERSION_4 = 'ipv4'
 IP_VERSION_6 = 'ipv6'
 
+# Geneve option NLA attributes consts
+TCA_FLOWER_KEY_ENC_OPTS_GENEVE = 'TCA_FLOWER_KEY_ENC_OPTS_GENEVE'
+TCA_FLOWER_KEY_ENC_OPTS_MASK = 'TCA_FLOWER_KEY_ENC_OPTS_MASK'
+TCA_FLOWER_KEY_ENC_OPT_GENEVE_CLASS = 'TCA_FLOWER_KEY_ENC_OPT_GENEVE_CLASS'
+TCA_FLOWER_KEY_ENC_OPT_GENEVE_TYPE = 'TCA_FLOWER_KEY_ENC_OPT_GENEVE_TYPE'
+TCA_FLOWER_KEY_ENC_OPT_GENEVE_DATA = 'TCA_FLOWER_KEY_ENC_OPT_GENEVE_DATA'
+
 
 class FlowerArgs(object):
     PROTOCOL = 'protocol'
@@ -217,7 +224,7 @@ def get_parameters(kwarg):
         mask_nested = _build_geneve_opts_mask(opts_str)
 
         attrs.append([User2Nla[FlowerArgs.GENEVE_OPTS], opts_nested])
-        attrs.append(['TCA_FLOWER_KEY_ENC_OPTS_MASK', mask_nested])
+        attrs.append([TCA_FLOWER_KEY_ENC_OPTS_MASK, mask_nested])
 
     if FlowerArgs.ACTION in kwarg:
         attrs.append([User2Nla[FlowerArgs.ACTION], get_tca_action(kwarg)])
@@ -263,11 +270,11 @@ def _parse_geneve_opts(opts_str):
 
     return {
         'attrs': [
-            ['TCA_FLOWER_KEY_ENC_OPTS_GENEVE', {
+            [TCA_FLOWER_KEY_ENC_OPTS_GENEVE, {
                 'attrs': [
-                    ['TCA_FLOWER_KEY_ENC_OPT_GENEVE_CLASS', opt_class],
-                    ['TCA_FLOWER_KEY_ENC_OPT_GENEVE_TYPE', opt_type],
-                    ['TCA_FLOWER_KEY_ENC_OPT_GENEVE_DATA', opt_data],
+                    [TCA_FLOWER_KEY_ENC_OPT_GENEVE_CLASS, opt_class],
+                    [TCA_FLOWER_KEY_ENC_OPT_GENEVE_TYPE, opt_type],
+                    [TCA_FLOWER_KEY_ENC_OPT_GENEVE_DATA, opt_data],
                 ]
             }]
         ]
@@ -279,11 +286,11 @@ def _build_geneve_opts_mask(opts_str):
 
     return {
         'attrs': [
-            ['TCA_FLOWER_KEY_ENC_OPTS_GENEVE', {
+            [TCA_FLOWER_KEY_ENC_OPTS_GENEVE, {
                 'attrs': [
-                    ['TCA_FLOWER_KEY_ENC_OPT_GENEVE_CLASS', GENEVE_CLASS_FULL_MASK],
-                    ['TCA_FLOWER_KEY_ENC_OPT_GENEVE_TYPE', GENEVE_TYPE_FULL_MASK],
-                    ['TCA_FLOWER_KEY_ENC_OPT_GENEVE_DATA',
+                    [TCA_FLOWER_KEY_ENC_OPT_GENEVE_CLASS, GENEVE_CLASS_FULL_MASK],
+                    [TCA_FLOWER_KEY_ENC_OPT_GENEVE_TYPE, GENEVE_TYPE_FULL_MASK],
+                    [TCA_FLOWER_KEY_ENC_OPT_GENEVE_DATA,
                      bytes([GENEVE_DATA_BYTE_MASK] * len(opt_data))],
                 ]
             }]
