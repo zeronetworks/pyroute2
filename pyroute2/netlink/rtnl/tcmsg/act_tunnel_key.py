@@ -4,6 +4,20 @@ from pyroute2.netlink import NLA_F_NESTED, nla
 from pyroute2.netlink.rtnl.tcmsg.common import tc_actions
 from pyroute2.netlink.rtnl.tcmsg.utils import is_ipv6_addr, parse_geneve_opt
 
+# NLA attribute constants
+TCA_TUNNEL_KEY_PARMS = 'TCA_TUNNEL_KEY_PARMS'
+TCA_TUNNEL_KEY_ENC_IPV4_SRC = 'TCA_TUNNEL_KEY_ENC_IPV4_SRC'
+TCA_TUNNEL_KEY_ENC_IPV4_DST = 'TCA_TUNNEL_KEY_ENC_IPV4_DST'
+TCA_TUNNEL_KEY_ENC_IPV6_SRC = 'TCA_TUNNEL_KEY_ENC_IPV6_SRC'
+TCA_TUNNEL_KEY_ENC_IPV6_DST = 'TCA_TUNNEL_KEY_ENC_IPV6_DST'
+TCA_TUNNEL_KEY_ENC_KEY_ID = 'TCA_TUNNEL_KEY_ENC_KEY_ID'
+TCA_TUNNEL_KEY_ENC_DST_PORT = 'TCA_TUNNEL_KEY_ENC_DST_PORT'
+TCA_TUNNEL_KEY_ENC_OPTS = 'TCA_TUNNEL_KEY_ENC_OPTS'
+TCA_TUNNEL_KEY_ENC_OPTS_GENEVE = 'TCA_TUNNEL_KEY_ENC_OPTS_GENEVE'
+TCA_TUNNEL_KEY_ENC_OPT_GENEVE_CLASS = 'TCA_TUNNEL_KEY_ENC_OPT_GENEVE_CLASS'
+TCA_TUNNEL_KEY_ENC_OPT_GENEVE_TYPE = 'TCA_TUNNEL_KEY_ENC_OPT_GENEVE_TYPE'
+TCA_TUNNEL_KEY_ENC_OPT_GENEVE_DATA = 'TCA_TUNNEL_KEY_ENC_OPT_GENEVE_DATA'
+
 
 # from include/uapi/linux/tc_act/tc_tunnel_key.h
 class TunnelKeyConsts:
@@ -45,7 +59,7 @@ def get_parameters(kwarg):
     if tc_action_code is None:
         raise ValueError('unknown tc_action: {}'.format(tc_action_str))
 
-    attrs = [['TCA_TUNNEL_KEY_PARMS', {
+    attrs = [[TCA_TUNNEL_KEY_PARMS, {
         't_action': tunnel_action,
         'action': tc_action_code,
     }]]
@@ -72,25 +86,25 @@ def _build_tunnel_set_attrs(kwarg):
     dst_ip = kwarg[TunnelKeyArgs.DST_IP]
 
     if is_ipv6_addr(src_ip):
-        attrs.append(['TCA_TUNNEL_KEY_ENC_IPV6_SRC', src_ip])
+        attrs.append([TCA_TUNNEL_KEY_ENC_IPV6_SRC, src_ip])
     else:
-        attrs.append(['TCA_TUNNEL_KEY_ENC_IPV4_SRC', src_ip])
+        attrs.append([TCA_TUNNEL_KEY_ENC_IPV4_SRC, src_ip])
 
     if is_ipv6_addr(dst_ip):
-        attrs.append(['TCA_TUNNEL_KEY_ENC_IPV6_DST', dst_ip])
+        attrs.append([TCA_TUNNEL_KEY_ENC_IPV6_DST, dst_ip])
     else:
-        attrs.append(['TCA_TUNNEL_KEY_ENC_IPV4_DST', dst_ip])
+        attrs.append([TCA_TUNNEL_KEY_ENC_IPV4_DST, dst_ip])
 
     if TunnelKeyArgs.KEY_ID in kwarg:
         key_id = int(kwarg[TunnelKeyArgs.KEY_ID])
-        attrs.append(['TCA_TUNNEL_KEY_ENC_KEY_ID', struct.pack('>I', key_id)])
+        attrs.append([TCA_TUNNEL_KEY_ENC_KEY_ID, struct.pack('>I', key_id)])
 
     if TunnelKeyArgs.DST_PORT in kwarg:
-        attrs.append(['TCA_TUNNEL_KEY_ENC_DST_PORT', int(kwarg[TunnelKeyArgs.DST_PORT])])
+        attrs.append([TCA_TUNNEL_KEY_ENC_DST_PORT, int(kwarg[TunnelKeyArgs.DST_PORT])])
 
     if TunnelKeyArgs.GENEVE_OPTS in kwarg:
         geneve_attrs = _build_geneve_opts(kwarg[TunnelKeyArgs.GENEVE_OPTS])
-        attrs.append(['TCA_TUNNEL_KEY_ENC_OPTS', {'attrs': geneve_attrs}])
+        attrs.append([TCA_TUNNEL_KEY_ENC_OPTS, {'attrs': geneve_attrs}])
 
     return attrs
 
@@ -98,11 +112,11 @@ def _build_tunnel_set_attrs(kwarg):
 def _build_geneve_opts(opts_str):
     opt_class, opt_type, opt_data = parse_geneve_opt(opts_str)
 
-    return [['TCA_TUNNEL_KEY_ENC_OPTS_GENEVE', {
+    return [[TCA_TUNNEL_KEY_ENC_OPTS_GENEVE, {
         'attrs': [
-            ['TCA_TUNNEL_KEY_ENC_OPT_GENEVE_CLASS', opt_class],
-            ['TCA_TUNNEL_KEY_ENC_OPT_GENEVE_TYPE', opt_type],
-            ['TCA_TUNNEL_KEY_ENC_OPT_GENEVE_DATA', opt_data],
+            [TCA_TUNNEL_KEY_ENC_OPT_GENEVE_CLASS, opt_class],
+            [TCA_TUNNEL_KEY_ENC_OPT_GENEVE_TYPE, opt_type],
+            [TCA_TUNNEL_KEY_ENC_OPT_GENEVE_DATA, opt_data],
         ]
     }]]
 
