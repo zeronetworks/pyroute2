@@ -1650,6 +1650,15 @@ class RTNL_API(object):
 
         if kind is not None:
             msg['attrs'].append(['TCA_KIND', kind])
+
+        if 'chain' in kwarg:
+            try:
+                chain_id = int(kwarg['chain'])
+            except:
+                raise ValueError("chain must be integer")
+
+            msg['attrs'].append(['TCA_CHAIN', chain_id])
+
         if opts is not None:
             msg['attrs'].append(['TCA_OPTIONS', opts])
         return tuple(self.nlm_request(msg, msg_type=command, msg_flags=flags))
