@@ -33,10 +33,7 @@ def get_parameters(kwarg):
         if 'chain' not in kwarg:
             raise ValueError("'goto' action requires 'chain' parameter")
 
-        try:
-            chain_id = int(kwarg['chain'])
-        except:
-            raise ValueError("chain must be integer")
+        chain_id = int(kwarg['chain'])
 
         if chain_id < 0 or chain_id > TC_ACT_EXT_VAL_MASK:
             raise ValueError(

@@ -1952,10 +1952,7 @@ class RTNL_API:
             msg['attrs'].append(['TCA_KIND', kind])
 
         if 'chain' in kwarg:
-            try:
-                chain_id = int(kwarg['chain'])
-            except:
-                raise ValueError("chain must be integer")
+            chain_id = int(kwarg['chain'])
 
             msg['attrs'].append(['TCA_CHAIN', chain_id])
 
