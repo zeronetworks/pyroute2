@@ -217,6 +217,22 @@ def test_flower_ip_cidr_port(ipr, ifindex, priority):
             }
         ])
 
+def test_flower_ipv6(ipr, ifindex, priority):
+    ipr.tc(
+        "add-filter",
+        "flower",
+        ifindex,
+        parent=CLSACT_INGRESS,
+        prio=priority,
+        src_ip='fe80::1ff:fe23:4567:890a',
+        dst_ip='fe80::1ff:fe23:4567:891b',
+        actions=[
+            {
+                'kind': 'gact',
+                'action': 'drop',
+            }
+        ])
+
 
 def test_flower_enc_fields(ipr, ifindex, priority):
     ipr.tc(
