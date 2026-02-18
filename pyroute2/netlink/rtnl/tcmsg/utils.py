@@ -31,7 +31,7 @@ def parse_ip(ip_str):
 def detect_protocol(kwargs):
     for ip_field in ['src_ip', 'dst_ip']:
         if ip_field in kwargs:
-            if is_ipv6_addr(ip_field):
+            if is_ipv6_addr(kwargs[ip_field]):
                 return protocols.ETH_P_IPV6
 
             return protocols.ETH_P_IP
