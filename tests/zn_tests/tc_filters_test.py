@@ -275,6 +275,20 @@ def test_flower_ip_range(ipr, ifindex, priority):
         actions=[{"kind": "gact", "action": "drop"}],
     )
 
+
+def test_flower_port_range(ipr, ifindex, priority):
+    ipr.tc(
+        "add-filter", "flower", ifindex,
+        parent=CLSACT_INGRESS,
+        prio=priority,
+        eth_type=protocols.ETH_P_IP,
+        ip_proto="tcp",
+        dst_port_min=8000,
+        dst_port_max=9000,
+        action=[{"kind": "gact", "action": "drop"}],
+    )
+
+
 def test_flower_ip_frags(ipr, ifindex, priority):
     ipr.tc(
         "add-filter", "flower", ifindex,
