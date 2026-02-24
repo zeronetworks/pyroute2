@@ -46,6 +46,12 @@ class FlowerArgs(CommonTcArgs):
 
     SRC_PORT = 'src_port'
 
+    # Port range arguments (protocol-agnostic)
+    SRC_PORT_MIN = 'src_port_min'
+    SRC_PORT_MAX = 'src_port_max'
+    DST_PORT_MIN = 'dst_port_min'
+    DST_PORT_MAX = 'dst_port_max'
+
     IP_FLAGS = 'ip_flags'
 
     # Encapsulation (tunnel) parameters
@@ -103,6 +109,14 @@ IpVersion2Nla = {
     }
 }
 
+# Port ranges specific mapping
+PortRangesVersion2Nla = {
+    FlowerArgs.SRC_PORT_MIN: 'TCA_FLOWER_KEY_PORT_SRC_MIN',
+    FlowerArgs.SRC_PORT_MAX: 'TCA_FLOWER_KEY_PORT_SRC_MAX',
+    FlowerArgs.DST_PORT_MIN: 'TCA_FLOWER_KEY_PORT_DST_MIN',
+    FlowerArgs.DST_PORT_MAX: 'TCA_FLOWER_KEY_PORT_DST_MAX',
+}
+
 # Encapsulation IP version-specific mappings
 EncIpVersion2Nla = {
     IP_VERSION_4: {
@@ -139,11 +153,10 @@ def get_parameters(kwarg):
         ip_proto_val = get_protocol_by_name(kwarg[FlowerArgs.IP_PROTO])
         if ip_proto_val is not None:
             attrs.append([User2Nla[FlowerArgs.IP_PROTO], ip_proto_val])
-
-    if FlowerArgs.SRC_PORT in kwarg or FlowerArgs.DST_PORT in kwarg:
-        if ip_proto_val is None:
+        elif any([Proto2PortNla.keys() + PortRangesVersion2Nla.keys()]) in kwarg:
             raise ValueError("src_port/dst_port requires ip_proto value (tcp, udp)")
 
+    if FlowerArgs.SRC_PORT in kwarg or FlowerArgs.DST_PORT in kwarg:
         if ip_proto_val not in Proto2PortNla:
             raise ValueError(
                 "Unsupported protocol for ports: {}".format(ip_proto_val))
@@ -155,6 +168,8 @@ def get_parameters(kwarg):
 
         if FlowerArgs.DST_PORT in kwarg:
             attrs.append([port_map[FlowerArgs.DST_PORT], kwarg[FlowerArgs.DST_PORT]])
+
+    attrs.extend(_build_port_range_attrs(kwarg))
 
     attrs.extend(_build_ip_attrs(
         kwarg, FlowerArgs.SRC_IP, FlowerArgs.SRC_MASK_IP, IpVersion2Nla))
@@ -227,6 +242,14 @@ def get_parameters(kwarg):
         attrs.append([User2Nla[FlowerArgs.ACTION], get_tca_action(kwarg)])
 
     return {'attrs': attrs}
+
+def _build_port_range_attrs(kwarg):
+    attrs = []
+    for field, field_nla_key in PortRangesVersion2Nla.items():
+        if field in kwarg:
+            attrs.append([field_nla_key, kwarg[field]])
+
+    return attrs
 
 
 def _build_ip_attrs(kwarg, ip_key, mask_key, nla_map):
