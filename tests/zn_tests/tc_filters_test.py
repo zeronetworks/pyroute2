@@ -7,7 +7,7 @@ import pyroute2
 from pyroute2 import IPRoute, protocols
 
 
-EXPECTED_PYROUTE2_VERSION = "0.7.10.4"
+EXPECTED_PYROUTE2_VERSION = "0.7.10.6"
 IFNAME = "zn-tc-test0"
 GNV_IFNAME = "zn-tc-gnv0"
 
