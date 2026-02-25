@@ -153,8 +153,6 @@ def get_parameters(kwarg):
         ip_proto_val = get_protocol_by_name(kwarg[FlowerArgs.IP_PROTO])
         if ip_proto_val is not None:
             attrs.append([User2Nla[FlowerArgs.IP_PROTO], ip_proto_val])
-        elif any([Proto2PortNla.keys() + PortRangesVersion2Nla.keys()]) in kwarg:
-            raise ValueError("src_port/dst_port requires ip_proto value (tcp, udp)")
 
     if FlowerArgs.SRC_PORT in kwarg or FlowerArgs.DST_PORT in kwarg:
         if ip_proto_val not in Proto2PortNla:
@@ -169,7 +167,9 @@ def get_parameters(kwarg):
         if FlowerArgs.DST_PORT in kwarg:
             attrs.append([port_map[FlowerArgs.DST_PORT], kwarg[FlowerArgs.DST_PORT]])
 
-    attrs.extend(_build_port_range_attrs(kwarg))
+    if any(port_range_arg in kwarg for port_range_arg in PortRangesVersion2Nla.keys()):
+        validate_port_ranges_args(kwarg, ip_proto_val)
+        attrs.extend(_build_port_range_attrs(kwarg))
 
     attrs.extend(_build_ip_attrs(
         kwarg, FlowerArgs.SRC_IP, FlowerArgs.SRC_MASK_IP, IpVersion2Nla))
@@ -440,3 +440,8 @@ class options(nla):
                 ('TCA_FLOWER_KEY_ENC_OPT_GENEVE_TYPE', 'uint8'),
                 ('TCA_FLOWER_KEY_ENC_OPT_GENEVE_DATA', 'hex'),
             )
+
+def validate_port_ranges_args(kwargs, ip_proto_val):
+    if ip_proto_val not in Proto2PortNla:
+        raise ValueError(
+            "Unsupported ip protocol: {}".format(ip_proto_val))
