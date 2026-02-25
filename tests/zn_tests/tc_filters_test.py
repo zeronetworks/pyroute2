@@ -1,10 +1,16 @@
 import itertools
+import logging
 import os
+import socket
 import subprocess
 import pytest
 
 import pyroute2
 from pyroute2 import IPRoute, protocols
+
+from tc_nla_constants import TcaNla
+
+log = logging.getLogger(__name__)
 
 
 EXPECTED_PYROUTE2_VERSION = "0.5.18.3"
@@ -20,6 +26,7 @@ pytestmark = pytest.mark.skipif(
 )
 
 EOPNOTSUPP_CODE = 95
+
 
 def _run(cmd, check=True):
     proc = subprocess.Popen(
@@ -37,25 +44,68 @@ def _try_run(cmd):
     return _run(cmd, check=False)
 
 
-def _print_cmd_result(title, stdout, stderr, rc):
-    print(title)
-    print("return code: {}".format(rc))
-
-    out = (stdout or "").rstrip()
-    err = (stderr or "").strip()
-
-    print(out)
-    print("stderr: " + err)
+def _log_cmd_result(title, stdout, stderr, rc):
+    log.debug("%s  rc=%s  out=%s  err=%s",
+              title, rc,
+              (stdout or "").rstrip(),
+              (stderr or "").strip())
 
 
 def tc_show_state(tag):
-    print("\n==== TC STATE {} (dev {}) ====".format(tag, IFNAME))
+    log.debug("==== TC STATE %s (dev %s) ====", tag, IFNAME)
+    _log_cmd_result("-- qdisc --", *_try_run(["tc", "qdisc", "show", "dev", IFNAME]))
+    _log_cmd_result("-- filters ingress --", *_try_run(["tc", "filter", "show", "dev", IFNAME, "ingress"]))
+    _log_cmd_result("-- filters egress --", *_try_run(["tc", "filter", "show", "dev", IFNAME, "egress"]))
+    log.debug("================================")
 
-    _print_cmd_result("-- qdisc --", *_try_run(["tc", "qdisc", "show", "dev", IFNAME]))
-    _print_cmd_result("-- filters ingress --", *_try_run(["tc", "filter", "show", "dev", IFNAME, "ingress"]))
-    _print_cmd_result("-- filters egress --", *_try_run(["tc", "filter", "show", "dev", IFNAME, "egress"]))
 
-    print("================================\n")
+def _get_filter_prio(flt):
+    return (flt['info'] >> 16) & 0xFFFF
+
+
+def _find_filter(ipr, ifindex, parent, prio, chain=None):
+    filters = ipr.get_filters(index=ifindex, parent=parent)
+    for flt in filters:
+        if flt.get_attr(TcaNla.OPTIONS) is None:
+            continue
+        if _get_filter_prio(flt) != prio:
+            continue
+        if chain is not None:
+            flt_chain = flt.get_attr(TcaNla.CHAIN)
+            if flt_chain != chain:
+                continue
+        return flt
+    return None
+
+
+def _assert_flower_attrs(flt, expected_kind, expected_nla_attrs):
+    kind = flt.get_attr(TcaNla.KIND)
+    assert kind == expected_kind, "expected kind %s, got %s" % (expected_kind, kind)
+
+    options = flt.get_attr(TcaNla.OPTIONS)
+    assert options is not None, "TCA_OPTIONS missing from filter"
+
+    for nla_name, expected_val in expected_nla_attrs.items():
+        actual = options.get_attr(nla_name)
+        if expected_val is None:
+            assert actual is not None, "%s should exist but is missing" % nla_name
+        else:
+            assert actual == expected_val, (
+                "%s: expected %r, got %r" % (nla_name, expected_val, actual)
+            )
+
+
+def _assert_action_kind(flt, expected_kind, action_nla_name, action_index=1):
+    options = flt.get_attr(TcaNla.OPTIONS)
+    assert options is not None, "TCA_OPTIONS missing"
+    acts = options.get_attr(action_nla_name)
+    assert acts is not None, "%s missing" % action_nla_name
+    act_prio = acts.get_attr('TCA_ACT_PRIO_%d' % action_index)
+    assert act_prio is not None, "TCA_ACT_PRIO_%d missing" % action_index
+    act_kind = act_prio.get_attr(TcaNla.ACT_KIND)
+    assert act_kind == expected_kind, (
+        "action kind: expected %s, got %s" % (expected_kind, act_kind)
+    )
 
 
 def get_interface_index(ipr, interface_name):
@@ -208,6 +258,16 @@ def test_flower_ip_port(ipr, ifindex, priority):
             }
         ])
 
+    flt = _find_filter(ipr, ifindex, CLSACT_INGRESS, priority)
+    assert flt is not None, "filter not found after creation"
+    _assert_flower_attrs(flt, 'flower', {
+        TcaNla.FLOWER_KEY_IPV4_SRC: '192.168.1.0',
+        TcaNla.FLOWER_KEY_IPV4_DST: '10.0.0.1',
+        TcaNla.FLOWER_KEY_IP_PROTO: 6,
+        TcaNla.FLOWER_KEY_TCP_DST: 60,
+    })
+    _assert_action_kind(flt, 'gact', TcaNla.FLOWER_ACT)
+
 
 def test_flower_ip_cidr_port(ipr, ifindex, priority):
     ipr.tc(
@@ -227,6 +287,16 @@ def test_flower_ip_cidr_port(ipr, ifindex, priority):
             }
         ])
 
+    flt = _find_filter(ipr, ifindex, CLSACT_INGRESS, priority)
+    assert flt is not None, "filter not found after creation"
+    _assert_flower_attrs(flt, 'flower', {
+        TcaNla.FLOWER_KEY_IPV4_SRC: '192.168.1.0',
+        TcaNla.FLOWER_KEY_IPV4_SRC_MASK: '255.255.255.0',
+        TcaNla.FLOWER_KEY_IP_PROTO: 17,
+        TcaNla.FLOWER_KEY_UDP_DST: 68,
+    })
+    _assert_action_kind(flt, 'gact', TcaNla.FLOWER_ACT)
+
 def test_flower_ipv6(ipr, ifindex, priority):
     ipr.tc(
         "add-filter",
@@ -243,6 +313,23 @@ def test_flower_ipv6(ipr, ifindex, priority):
             }
         ])
 
+    flt = _find_filter(ipr, ifindex, CLSACT_INGRESS, priority)
+    assert flt is not None, "filter not found after creation"
+
+    options = flt.get_attr(TcaNla.OPTIONS)
+    actual_src = options.get_attr(TcaNla.FLOWER_KEY_IPV6_SRC)
+    actual_dst = options.get_attr(TcaNla.FLOWER_KEY_IPV6_DST)
+    expected_src = socket.inet_ntop(socket.AF_INET6,
+                                    socket.inet_pton(socket.AF_INET6, 'fe80::1ff:fe23:4567:890a'))
+    expected_dst = socket.inet_ntop(socket.AF_INET6,
+                                    socket.inet_pton(socket.AF_INET6, 'fe80::1ff:fe23:4567:891b'))
+    assert actual_src == expected_src, "IPV6_SRC: expected %s, got %s" % (expected_src, actual_src)
+    assert actual_dst == expected_dst, "IPV6_DST: expected %s, got %s" % (expected_dst, actual_dst)
+
+    actual_src_mask = options.get_attr(TcaNla.FLOWER_KEY_IPV6_SRC_MASK)
+    assert actual_src_mask is not None, "IPV6_SRC_MASK should exist"
+    _assert_action_kind(flt, 'gact', TcaNla.FLOWER_ACT)
+
 def test_flower_enc_fields(ipr, ifindex, priority):
     ipr.tc(
         "add-filter",
@@ -256,6 +343,16 @@ def test_flower_enc_fields(ipr, ifindex, priority):
         enc_dst_port=6000,
         action=[{"kind": "gact", "action": "drop"}],
     )
+
+    flt = _find_filter(ipr, ifindex, CLSACT_INGRESS, priority)
+    assert flt is not None, "filter not found after creation"
+    _assert_flower_attrs(flt, 'flower', {
+        TcaNla.FLOWER_KEY_ENC_IPV4_SRC: '192.168.1.0',
+        TcaNla.FLOWER_KEY_ENC_IPV4_DST: '10.0.0.1',
+        TcaNla.FLOWER_KEY_ENC_KEY_ID: 124,
+        TcaNla.FLOWER_KEY_ENC_UDP_DST_PORT: 6000,
+    })
+    _assert_action_kind(flt, 'gact', TcaNla.FLOWER_ACT)
 
 
 def test_flower_geneve_opts(ipr, ifindex, priority):
@@ -272,6 +369,15 @@ def test_flower_geneve_opts(ipr, ifindex, priority):
             {"kind": "gact", "action": "drop"}
         ],
     )
+
+    flt = _find_filter(ipr, ifindex, CLSACT_INGRESS, priority)
+    assert flt is not None, "filter not found after creation"
+    _assert_flower_attrs(flt, 'flower', {
+        TcaNla.FLOWER_KEY_ENC_IPV4_SRC: '1.1.1.1',
+        TcaNla.FLOWER_KEY_ENC_KEY_ID: 1234,
+        TcaNla.FLOWER_KEY_ENC_OPTS: None,
+    })
+    _assert_action_kind(flt, 'gact', TcaNla.FLOWER_ACT)
 
 
 @pytest.mark.xfail(reason="ip range is not supported in flower filter")
@@ -300,6 +406,16 @@ def test_flower_port_range(ipr, ifindex, priority):
         action=[{"kind": "gact", "action": "drop"}],
     )
 
+    flt = _find_filter(ipr, ifindex, CLSACT_INGRESS, priority)
+    assert flt is not None, "filter not found after creation"
+    _assert_flower_attrs(flt, 'flower', {
+        TcaNla.FLOWER_KEY_IP_PROTO: 6,
+        TcaNla.FLOWER_KEY_PORT_DST_MIN: 8000,
+        TcaNla.FLOWER_KEY_PORT_DST_MAX: 9000,
+        TcaNla.FLOWER_KEY_IPV4_SRC: '10.1.1.1',
+    })
+    _assert_action_kind(flt, 'gact', TcaNla.FLOWER_ACT)
+
 
 def test_flower_ip_frags(ipr, ifindex, priority):
     ipr.tc(
@@ -317,6 +433,22 @@ def test_flower_ip_frags(ipr, ifindex, priority):
         ip_flags="nofrag",
         action=[{"kind": "gact", "action": "drop"}],
     )
+
+    frag_flt = _find_filter(ipr, ifindex, CLSACT_INGRESS, priority)
+    assert frag_flt is not None, "frag filter not found"
+    _assert_flower_attrs(frag_flt, 'flower', {
+        TcaNla.FLOWER_KEY_FLAGS: 1,
+        TcaNla.FLOWER_KEY_FLAGS_MASK: 1,
+    })
+    _assert_action_kind(frag_flt, 'gact', TcaNla.FLOWER_ACT)
+
+    nofrag_flt = _find_filter(ipr, ifindex, CLSACT_INGRESS, priority + 1)
+    assert nofrag_flt is not None, "nofrag filter not found"
+    _assert_flower_attrs(nofrag_flt, 'flower', {
+        TcaNla.FLOWER_KEY_FLAGS: 0,
+        TcaNla.FLOWER_KEY_FLAGS_MASK: 1,
+    })
+    _assert_action_kind(nofrag_flt, 'gact', TcaNla.FLOWER_ACT)
 
 
 def test_pedit_munge_set_src(ipr, ifindex, priority):
@@ -338,6 +470,11 @@ def test_pedit_munge_set_src(ipr, ifindex, priority):
         ],
     )
 
+    flt = _find_filter(ipr, ifindex, CLSACT_INGRESS, priority)
+    assert flt is not None, "filter not found after creation"
+    assert flt.get_attr(TcaNla.KIND) == 'matchall'
+    _assert_action_kind(flt, 'pedit', TcaNla.MATCHALL_ACT)
+
 
 def test_pedit_munge_set_dst(ipr, ifindex, priority):
     ipr.tc(
@@ -357,6 +494,11 @@ def test_pedit_munge_set_dst(ipr, ifindex, priority):
             }
         ],
     )
+
+    flt = _find_filter(ipr, ifindex, CLSACT_INGRESS, priority)
+    assert flt is not None, "filter not found after creation"
+    assert flt.get_attr(TcaNla.KIND) == 'matchall'
+    _assert_action_kind(flt, 'pedit', TcaNla.MATCHALL_ACT)
 
 
 def test_tunnel_key(ipr, ifindex, priority):
@@ -380,6 +522,11 @@ def test_tunnel_key(ipr, ifindex, priority):
         ],
     )
 
+    flt = _find_filter(ipr, ifindex, CLSACT_INGRESS, priority)
+    assert flt is not None, "filter not found after creation"
+    assert flt.get_attr(TcaNla.KIND) == 'matchall'
+    _assert_action_kind(flt, 'tunnel_key', TcaNla.MATCHALL_ACT)
+
 
 def test_chain(ipr, ifindex, priority):
     ipr.tc(
@@ -391,6 +538,12 @@ def test_chain(ipr, ifindex, priority):
         chain=10,
         action=[{"kind": "gact", "action": "drop"}],
     )
+
+    flt = _find_filter(ipr, ifindex, CLSACT_INGRESS, priority, chain=10)
+    assert flt is not None, "filter not found after creation"
+    assert flt.get_attr(TcaNla.KIND) == 'matchall'
+    assert flt.get_attr(TcaNla.CHAIN) == 10
+    _assert_action_kind(flt, 'gact', TcaNla.MATCHALL_ACT)
 
 
 def test_goto_chain(ipr, ifindex, priority):
@@ -412,3 +565,13 @@ def test_goto_chain(ipr, ifindex, priority):
         chain=20,
         action=[{"kind": "gact", "action": "drop"}],
     )
+
+    goto_flt = _find_filter(ipr, ifindex, CLSACT_INGRESS, priority, chain=0)
+    assert goto_flt is not None, "goto filter not found"
+    assert goto_flt.get_attr(TcaNla.KIND) == 'matchall'
+    _assert_action_kind(goto_flt, 'gact', TcaNla.MATCHALL_ACT)
+
+    chain_flt = _find_filter(ipr, ifindex, CLSACT_INGRESS, priority, chain=20)
+    assert chain_flt is not None, "chain-20 drop filter not found"
+    assert chain_flt.get_attr(TcaNla.KIND) == 'matchall'
+    _assert_action_kind(chain_flt, 'gact', TcaNla.MATCHALL_ACT)
