@@ -168,7 +168,7 @@ def get_parameters(kwarg):
             attrs.append([port_map[FlowerArgs.DST_PORT], kwarg[FlowerArgs.DST_PORT]])
 
     if any(port_range_arg in kwarg for port_range_arg in PortRangesVersion2Nla.keys()):
-        validate_port_ranges_args(kwarg, ip_proto_val)
+        validate_port_ranges_args(ip_proto_val)
         attrs.extend(_build_port_range_attrs(kwarg))
 
     attrs.extend(_build_ip_attrs(
@@ -441,7 +441,7 @@ class options(nla):
                 ('TCA_FLOWER_KEY_ENC_OPT_GENEVE_DATA', 'hex'),
             )
 
-def validate_port_ranges_args(kwargs, ip_proto_val):
+def validate_port_ranges_args(ip_proto_val):
     if ip_proto_val not in Proto2PortNla:
         raise ValueError(
             "Unsupported ip protocol: {}".format(ip_proto_val))
