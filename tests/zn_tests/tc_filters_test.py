@@ -220,7 +220,7 @@ def test_flower_ip_cidr_port(ipr, ifindex, priority):
         dst_ip='10.0.0.1/24',
         ip_proto="udp",
         dst_port=68,
-        actions=[
+        action=[
             {
                 'kind': 'gact',
                 'action': 'drop',
@@ -236,7 +236,7 @@ def test_flower_ipv6(ipr, ifindex, priority):
         prio=priority,
         src_ip='fe80::1ff:fe23:4567:890a',
         dst_ip='fe80::1ff:fe23:4567:891b',
-        actions=[
+        action=[
             {
                 'kind': 'gact',
                 'action': 'drop',
@@ -281,7 +281,7 @@ def test_flower_ip_range(ipr, ifindex, priority):
         parent=CLSACT_INGRESS,
         prio=priority,
         src_ip='192.168.1.0-192.168.1.10',
-        actions=[{"kind": "gact", "action": "drop"}],
+        action=[{"kind": "gact", "action": "drop"}],
     )
 
 
@@ -294,6 +294,9 @@ def test_flower_port_range(ipr, ifindex, priority):
         ip_proto="tcp",
         dst_port_min=8000,
         dst_port_max=9000,
+        src_port_min=1000,
+        src_port_max=2000,
+        src_ip='10.1.1.1',
         action=[{"kind": "gact", "action": "drop"}],
     )
 
@@ -304,7 +307,7 @@ def test_flower_ip_frags(ipr, ifindex, priority):
         parent=CLSACT_INGRESS,
         prio=priority,
         ip_flags="frag",
-        actions=[{"kind": "gact", "action": "drop"}],
+        action=[{"kind": "gact", "action": "drop"}],
     )
 
     ipr.tc(
@@ -312,7 +315,7 @@ def test_flower_ip_frags(ipr, ifindex, priority):
         parent=CLSACT_INGRESS,
         prio=priority + 1,
         ip_flags="nofrag",
-        actions=[{"kind": "gact", "action": "drop"}],
+        action=[{"kind": "gact", "action": "drop"}],
     )
 
 
