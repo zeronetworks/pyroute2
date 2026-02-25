@@ -285,9 +285,44 @@ def test_flower_port_range(ipr, ifindex, priority):
         ip_proto="tcp",
         dst_port_min=8000,
         dst_port_max=9000,
+        src_port_min=300,
+        src_port_max=1000,
         action=[{"kind": "gact", "action": "drop"}],
     )
 
+    ipr.tc(
+        "add-filter", "flower", ifindex,
+        parent=CLSACT_INGRESS,
+        prio=priority,
+        eth_type=protocols.ETH_P_IP,
+        ip_proto="tcp",
+        dst_port_min=8000,
+        dst_port_max=9000,
+        action=[{"kind": "gact", "action": "drop"}],
+    )
+
+    ipr.tc(
+        "add-filter", "flower", ifindex,
+        parent=CLSACT_INGRESS,
+        prio=priority,
+        eth_type=protocols.ETH_P_IP,
+        ip_proto="tcp",
+        src_port_min=300,
+        src_port_max=1000,
+        action=[{"kind": "gact", "action": "drop"}],
+    )
+
+def test_flower_port_range_without_ip_proto(ipr, ifindex, priority):
+    with pytest.raises(ValueError):
+        ipr.tc(
+                "add-filter", "flower", ifindex,
+                parent=CLSACT_INGRESS,
+                prio=priority,
+                eth_type=protocols.ETH_P_IP,
+                dst_port_min=8000,
+                dst_port_max=9000,
+                action=[{"kind": "gact", "action": "drop"}],
+            )
 
 def test_flower_ip_frags(ipr, ifindex, priority):
     ipr.tc(
